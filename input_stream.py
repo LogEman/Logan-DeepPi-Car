@@ -4,6 +4,13 @@ import time
 import atexit
 import termios, fcntl, sys, os
 import select
+import pygame
+import websockets
+
+import asyncio
+import json
+from websockets.asyncio.server import serve
+from datetime import datetime
 
 from multiprocessing import Process, Lock, Array, Value
 
@@ -85,7 +92,105 @@ class input_kbd(input_stream):
             self.direction = .0
 
         return self.buffer, self.direction, self.speed
+    
+class input_gamepad:
+    def __init__(self, speed=50, port=8080):
+        self.speed = speed
+        self.lock = Lock()
+        self.shared_arr = Array('d', [0.0] * 8)  # [direction, speed, buttons...]
+        self.port = port
+        self.server_process = Process(target=self._start_server, daemon=True)
+        self.server_process.start()
+        print(f"WebSocket gamepad server started on port {port}")
 
+    # ────────────────────────────────────────────────
+    # Async WebSocket handler
+    async def _websocket_handler(self, websocket):
+        print("Browser client connected.")
+        try:
+            async for message in websocket:
+                try:
+                    data = json.loads(message)
+                except Exception as e:
+                    print("Bad JSON:", e)
+                    continue
+
+                lx = float(data.get("lx", 0.0))
+                ly = float(data.get("ly", 0.0))
+                r2 = float(data.get("r2", 0.0))
+                l2 = float(data.get("l2", 0.0))
+                buttons = data.get("buttons", {})
+
+                # Convert triggers to speed control (-1 to 1)
+                speed_val = r2 - l2
+                direction_val = lx
+
+                # Map buttons into indices [2..7]
+                with self.lock:
+                    self.shared_arr[0] = direction_val
+                    self.shared_arr[1] = speed_val
+
+                    # Reset and reassign button states
+                    for i in range(2, 8):
+                        self.shared_arr[i] = 0.0
+
+                    if buttons.get("triangle"): self.shared_arr[2] = 1.0  # stop
+                    if buttons.get("circle"):   self.shared_arr[3] = 1.0  # record
+                    if buttons.get("start"):    self.shared_arr[4] = 1.0  # toggle DNN
+                    if buttons.get("select"):   self.shared_arr[5] = 1.0  # quit
+                    if buttons.get("square"):   self.shared_arr[6] = 1.0  # toggle video
+
+        except Exception as e:
+            print("Connection error:", e)
+        finally:
+            print("Browser client disconnected.")
+
+    # ────────────────────────────────────────────────
+    # Start WebSocket server
+    async def _run_server(self):
+        async with websockets.serve(self._websocket_handler, "0.0.0.0", self.port):
+            print("WebSocket server running.")
+            await asyncio.Future()  # keep alive
+
+    def _start_server(self):
+        asyncio.run(self._run_server())
+
+    # ────────────────────────────────────────────────
+    # Input reading interface
+    def read_inp(self):
+        self.lock.acquire()
+        direction = self.shared_arr[0]
+        speed_val = self.shared_arr[1]
+        buffer = ' '
+
+        # Match original keymap output logic
+        if self.shared_arr[2] == 1.0:
+            self.shared_arr[2] = 0.0
+            buffer = 's'  # stop
+        elif self.shared_arr[3] == 1.0:
+            self.shared_arr[3] = 0.0
+            buffer = 'r'  # record
+        elif self.shared_arr[4] == 1.0:
+            self.shared_arr[4] = 0.0
+            buffer = 'd'  # toggle DNN
+        elif self.shared_arr[5] == 1.0:
+            self.shared_arr[5] = 0.0
+            buffer = 'q'  # quit
+        elif self.shared_arr[6] == 1.0:
+            self.shared_arr[6] = 0.0
+            buffer = 't'  # toggle video
+
+        self.lock.release()
+
+        # Convert normalized speed to actual scale
+        return buffer, direction, speed_val * self.speed
+
+    def stop(self):
+        print("Stopping WebSocket server process.")
+        self.server_process.terminate()
+
+    
+    
 
 class input_gamepad(input_stream):
     def __init__(self, speed=50):

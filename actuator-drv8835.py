@@ -1,8 +1,17 @@
-from pololu_drv8835_rpi import motors, MAX_SPEED
+from gpiozero import PhaseEnableMotor
+from gpiozero.pins.pigpio import PiGPIOFactory
+
+MAX_SPEED = 480
+factory = PiGPIOFactory()
+
+steer_motor = PhaseEnableMotor(5, 12, pin_factory=factory)
+drive_motor = PhaseEnableMotor(6, 13, pin_factory=factory)
 
 # init
 def init(default_speed=50):
-    motors.setSpeeds(0, 0)
+    steer_motor.stop()
+    drive_motor.stop()
+
     set_speed(default_speed)
 
 # throttle
@@ -27,28 +36,28 @@ def get_speed():
 
 def stop():
     global move_state
-    motors.motor2.setSpeed(0)
+    drive_motor.stop()
     move_state=0
         
 def ffw():
     global move_state
-    motors.motor2.setSpeed(cur_speed)
+    drive_motor.forward(abs(cur_speed))
     move_state=1
 
 def rew():
     global move_state
-    motors.motor2.setSpeed(-cur_speed)
+    drive_motor.backward(abs(cur_speed))
     move_state=-1
 
 # steering
 def center():
-    motors.motor1.setSpeed(0)
+    steer_motor.stop()
 
 def left(speed=-1):
-    motors.motor1.setSpeed(int(speed*MAX_SPEED))
+    steer_motor.backward(abs((int(speed*MAX_SPEED))))
 
 def right(speed=1):
-    motors.motor1.setSpeed(int(speed*MAX_SPEED))
+    steer_motor.forward(abs(int(speed*MAX_SPEED)))
 
 # exit    
 def turn_off():

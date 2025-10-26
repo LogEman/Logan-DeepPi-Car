@@ -21,6 +21,8 @@ import signal
 import sys
 import shutil
 
+import pygame
+
 ##########################################################
 # import deeppicar's sensor/actuator modules
 ##########################################################
@@ -50,93 +52,6 @@ output_index = None
 finish = False
 
 # Web stream and file handling
-class stream_handler(BaseHTTPRequestHandler):
-    global cfg_cam_fps
-    streaming = True
-    def do_OPTIONS(self):
-        self.send_response(200, "ok")
-        self.send_header('Access-Control-Allow-Origin', '*')
-        self.send_header('Access-Control-Allow-Methods', 'GET, OPTIONS, POST')
-        self.send_header("Access-Control-Allow-Headers", "X-Requested-With")
-        self.send_header("Access-Control-Allow-Headers", "Content-Type")
-        self.end_headers()
-
-    def do_GET(self):
-        if self.path == '/':
-            self.send_response(200)
-            self.send_header('Location', '/index.html')
-            self.end_headers()
-        if self.path == '/stream.mjpg':
-            self.send_response(200)
-            self.send_header('Age', 0)
-            self.send_header('Cache-Control', 'no-cache, private')
-            self.send_header('Pragma', 'no-cache')
-            self.send_header('Content-Type', 'multipart/x-mixed-replace; boundary=FRAME')
-            self.end_headers()
-            period = 1./cfg_cam_fps
-            end_time = time.time() + period
-
-            try:
-                while stream_handler.streaming:
-                    frame = camera.read_frame()
-                    ret, frame = cv2.imencode('.jpg', frame)
-                    self.wfile.write(b'--FRAME\r\n')
-                    self.send_header('Content-Type', 'image/jpeg')
-                    self.send_header('Content-Length', len(frame))
-                    self.end_headers()
-                    self.wfile.write(frame)
-                    self.wfile.write(b'\r\n')
-
-                    tdiff = end_time - time.time()
-                    if tdiff > 0:
-                        time.sleep(tdiff)
-                    end_time += period
-                    print('streaming')
-            except Exception as e:
-                logging.warning(
-                    'Removed streaming client %s: %s',
-                    self.client_address, str(e))
-        elif self.path == '/download':
-            shutil.make_archive('./Dataset', 'zip', './data')
-            f = open('./Dataset.zip', 'rb')
-            self.send_response(200)
-            self.send_header('Content-Type', 'application/zip')
-            self.end_headers()
-            self.wfile.write(f.read())
-            f.close()
-        else:
-            self.send_error(404)
-            self.end_headers()
-
-    def do_POST(self):
-        global new_inp_type
-        if self.path == '/stream.mjpg':
-            self.send_response(201)
-            self.end_headers()
-            self.data_string = self.rfile.read(int(self.headers['Content-Length']))
-            data = json.loads(self.data_string)
-            print(data)
-            stream_handler.streaming = data['params']['streaming']
-        elif self.path == '/upload':
-            filename = "large-200x66x3.tflite"
-            file_length = int(self.headers['Content-Length'])
-            read = 0
-            with open('./models/'+filename, 'wb') as output_file:
-                output_file.write(self.rfile.read(file_length))
-            self.send_response(201, 'Created')
-            self.end_headers()
-            reply_body = 'Saved "%s"\n' % filename
-            self.wfile.write(reply_body.encode('utf-8'))
-            load_model()
-        elif self.path == '/input_switch':
-            self.send_response(301)
-            self.end_headers()
-            self.data_string = self.rfile.read(int(self.headers['Content-Length']))
-            data = json.loads(self.data_string)
-            new_inp_type = int(data['params']['input_type'])
-        else:
-            self.send_error(404)
-            self.end_headers()
 
         
 ##########################################################
@@ -158,8 +73,6 @@ def g_tick():
 
 def turn_off():
     print('Finishing...')
-    stream_handler.streaming = False
-    server.server_close()
     actuator.stop()
     camera.stop()
     cur_inp_stream.stop()
@@ -173,20 +86,6 @@ def preprocess(img):
         img = np.reshape(img, (params.img_height, params.img_width, params.img_channels))
     img = img / 255.
     return img
-
-def overlay_image(l_img, s_img, x_offset, y_offset):
-    assert y_offset + s_img.shape[0] <= l_img.shape[0]
-    assert x_offset + s_img.shape[1] <= l_img.shape[1]
-
-    l_img = l_img.copy()
-    for c in range(0, 3):
-        l_img[y_offset:y_offset+s_img.shape[0],
-              x_offset:x_offset+s_img.shape[1], c] = (
-                  s_img[:,:,c] * (s_img[:,:,3]/255.0) +
-                  l_img[y_offset:y_offset+s_img.shape[0],
-                        x_offset:x_offset+s_img.shape[1], c] *
-                  (1.0 - s_img[:,:,3]/255.0))
-    return l_img
 
 
 def load_model():
@@ -250,16 +149,11 @@ if __name__ == '__main__':
         
     if args.gamepad:
         cur_inp_type= input_stream.input_type.GAMEPAD
-    elif args.web:
-        cur_inp_type= input_stream.input_type.WEB
     else:
         cur_inp_type= input_stream.input_type.KEYBOARD
     new_inp_type=cur_inp_type
     cur_inp_stream= input_stream.instantiate_inp_stream(cur_inp_type, cfg_throttle)
 
-    address = ('', 8001)
-    server = ThreadingHTTPServer(address, stream_handler)
-    server.timeout = 0
 
     # initlaize deeppicar modules
     actuator.init(cfg_throttle)
@@ -287,7 +181,8 @@ if __name__ == '__main__':
             ch = cv2.waitKey(1) & 0xFF
         else:
             command, direction, speed = cur_inp_stream.read_inp()
-            
+        
+        
         actuator.set_speed(speed)
 
         if command == 'a':
@@ -322,8 +217,12 @@ if __name__ == '__main__':
             img = np.expand_dims(img, axis=0).astype(np.float32)
             interpreter.set_tensor(input_index, img)
             interpreter.invoke()
-            angle = interpreter.get_tensor(output_index)[0][0]
+            result = interpreter.get_tensor(output_index)[0]
+            angle, throttle = result
+
             action_limit = 10
+
+
             if rad2deg(angle) < -action_limit:
                 actuator.left()
                 print ("left (CPU)")
@@ -346,6 +245,7 @@ if __name__ == '__main__':
                 angle=0.
                 actuator.center()
                 print ("center")
+            throttle = speed
 
         dur = time.time() - ts
         if dur > period:
@@ -359,7 +259,7 @@ if __name__ == '__main__':
             os.makedirs(params.data_dir, exist_ok=True)
             # create files for data recording
             keyfile = open(params.rec_csv_file, 'w+')
-            keyfile.write("ts_micro,frame,wheel\n")
+            keyfile.write("ts_micro,frame,wheel,throttle\n")
             try:
                 fourcc = cv2.cv.CV_FOURCC(*'XVID')
             except AttributeError as e:
@@ -371,20 +271,10 @@ if __name__ == '__main__':
             frame_id += 1
 
             # write input (angle)
-            str = "{},{},{}\n".format(int(ts*1000), frame_id, angle)
+            str = "{},{},{}\n".format(int(ts*1000), frame_id, angle, throttle)
             keyfile.write(str)
 
-            if use_dnn and fpv_video:
-                textColor = (255,255,255)
-                bgColor = (0,0,0)
-                newImage = Image.new('RGBA', (100, 20), bgColor)
-                drawer = ImageDraw.Draw(newImage)
-                drawer.text((0, 0), "Frame #{}".format(frame_id), fill=textColor)
-                drawer.text((0, 10), "Angle:{}".format(angle), fill=textColor)
-                newImage = cv2.cvtColor(np.array(newImage), cv2.COLOR_BGR2RGBA)
-                frame = overlay_image(frame,
-                                        newImage,
-                                        x_offset = 0, y_offset = 0)
+
             # write video stream
             vidfile.write(frame)
             #img_name = "cal_images/opencv_frame_{}.png".format(frame_id)
@@ -393,7 +283,6 @@ if __name__ == '__main__':
             #    print ("recorded 1000 frames")
             #    break
             print ("%.3f %d %.3f %d(ms)" %
-            (ts, frame_id, angle, int((time.time() - ts)*1000)))
+            (ts, frame_id, angle, throttle, int((time.time() - ts)*1000)))
 
-        server.handle_request()
     turn_off()
