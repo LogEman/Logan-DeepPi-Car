@@ -21,7 +21,7 @@ import signal
 import sys
 import shutil
 
-import pygame
+
 
 ##########################################################
 # import deeppicar's sensor/actuator modules
@@ -181,9 +181,11 @@ if __name__ == '__main__':
             ch = cv2.waitKey(1) & 0xFF
         else:
             command, direction, speed = cur_inp_stream.read_inp()
+            if not use_dnn: #TESTINGGGG
+                actuator.set_speed(speed) #TESTING
         
         
-        actuator.set_speed(speed)
+       
 
         if command == 'a':
             actuator.ffw()
@@ -218,10 +220,11 @@ if __name__ == '__main__':
             interpreter.set_tensor(input_index, img)
             interpreter.invoke()
             result = interpreter.get_tensor(output_index)[0]
-            angle, throttle = result
+            angle, throttle = result #TESTING
 
             action_limit = 10
 
+            actuator.set_speed(throttle) #TESTING
 
             if rad2deg(angle) < -action_limit:
                 actuator.left()
@@ -245,7 +248,7 @@ if __name__ == '__main__':
                 angle=0.
                 actuator.center()
                 print ("center")
-            throttle = speed
+            throttle = speed #TESTING
 
         dur = time.time() - ts
         if dur > period:
@@ -259,7 +262,7 @@ if __name__ == '__main__':
             os.makedirs(params.data_dir, exist_ok=True)
             # create files for data recording
             keyfile = open(params.rec_csv_file, 'w+')
-            keyfile.write("ts_micro,frame,wheel,throttle\n")
+            keyfile.write("ts_micro,frame,wheel,throttle\n") #TESTING
             try:
                 fourcc = cv2.cv.CV_FOURCC(*'XVID')
             except AttributeError as e:
@@ -271,7 +274,7 @@ if __name__ == '__main__':
             frame_id += 1
 
             # write input (angle)
-            str = "{},{},{}\n".format(int(ts*1000), frame_id, angle, throttle)
+            str = "{},{},{}\n".format(int(ts*1000), frame_id, angle, throttle) #TESTING
             keyfile.write(str)
 
 
