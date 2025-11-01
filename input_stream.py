@@ -93,40 +93,6 @@ class input_kbd(input_stream):
         return self.buffer, self.direction, self.speed
     
 
-    # ────────────────────────────────────────────────
-    # Input reading interface
-    def read_inp(self):
-        self.lock.acquire()
-        direction = self.shared_arr[0]
-        speed_val = self.shared_arr[1]
-        buffer = ' '
-
-        # Match original keymap output logic
-        if self.shared_arr[2] == 1.0:
-            self.shared_arr[2] = 0.0
-            buffer = 's'  # stop
-        elif self.shared_arr[3] == 1.0:
-            self.shared_arr[3] = 0.0
-            buffer = 'r'  # record
-        elif self.shared_arr[4] == 1.0:
-            self.shared_arr[4] = 0.0
-            buffer = 'd'  # toggle DNN
-        elif self.shared_arr[5] == 1.0:
-            self.shared_arr[5] = 0.0
-            buffer = 'q'  # quit
-        elif self.shared_arr[6] == 1.0:
-            self.shared_arr[6] = 0.0
-            buffer = 't'  # toggle video
-
-        self.lock.release()
-
-        # Convert normalized speed to actual scale
-        return buffer, direction, speed_val * self.speed
-
-    def stop(self):
-        print("Stopping WebSocket server process.")
-        self.server_process.terminate()
-
 class input_gamepad(input_stream):
     def __init__(self, speed=50):
         self.shared_arr = Array('d', [0.]*9) # joystick pos and other buttons and finish state
