@@ -129,7 +129,7 @@ class input_kbd(input_stream):
 
 class input_gamepad(input_stream):
     def __init__(self, speed=50):
-        self.shared_arr = Array('d', [0.]*8) # joystick pos and other buttons and finish state
+        self.shared_arr = Array('d', [0.]*9) # joystick pos and other buttons and finish state
         #self.finish = Value('i', 1)
         self.lock=Lock()
         self.gamepad_process = Process(target=self.inputs_process, \
@@ -161,6 +161,11 @@ class input_gamepad(input_stream):
                     if val <= -256 or val >= 256: # calib, dead area
                         shr_gamepad_state[0] = val / 32768 #/ -32768 to 32767
                         print("SHRGAMEPADSTATE_0:", val)
+                if not disable_joystick and event.ev_type == 'Absolute' and event.code == 'ABS_RY':
+                        val = int(event.state)
+                        shr_gamepad_state[8] = -val / 32768 * 100
+                        print("SHRGAMEPADSTATE_8:", shr_gamepad_state[8])
+    
                 elif event.ev_type == 'Absolute' and event.code == 'ABS_HAT0Y':
                     if int(event.state) == -1:
                         shr_gamepad_state[1]=1.
@@ -225,7 +230,7 @@ class input_gamepad(input_stream):
             #print ("toggle video mode")
 
         self.direction = self.shared_arr[0]
-        self.speed = 
+        self.speed = self.shared_arr[8]
         self.lock.release()
 
         return self.buffer, self.direction, self.speed
