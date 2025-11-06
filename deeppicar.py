@@ -248,7 +248,9 @@ if __name__ == '__main__':
                 angle=0.
                 actuator.center()
                 print ("center")
+
             throttle = speed #TESTING
+            print("THROTTLE", throttle)
 
         dur = time.time() - ts
         if dur > period:
@@ -269,12 +271,13 @@ if __name__ == '__main__':
                 fourcc = cv2.VideoWriter_fourcc(*'XVID')
             vidfile = cv2.VideoWriter(params.rec_vid_file, fourcc,
                                     cfg_cam_fps, cfg_cam_res)
-        if enable_record == True and frame is not None:
+        if enable_record == True:
             # increase frame_id
             frame_id += 1
 
             # write input (angle)
-            str = "{},{},{}\n".format(int(ts*1000), frame_id, angle, throttle) #TESTING
+            str = "{},{},{},{}\n".format(int(ts*1000), frame_id, angle, throttle) #TESTING
+            print("HEREEEE", str)
             keyfile.write(str)
 
 
@@ -285,7 +288,7 @@ if __name__ == '__main__':
             #if frame_id >= 1000:
             #    print ("recorded 1000 frames")
             #    break
-            print ("%.3f %d %.3f %d(ms)" %
+            print ("%.3f %d %.3f %.3f %d(ms)" %
             (ts, frame_id, angle, throttle, int((time.time() - ts)*1000)))
 
     turn_off()

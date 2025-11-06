@@ -122,15 +122,23 @@ class input_gamepad(input_stream):
                 disable_joystick = False
             lock.acquire()
             for event in gamepad_events:
-                if not disable_joystick and event.ev_type == 'Absolute' and event.code == 'ABS_X':
+                if event.ev_type == 'Absolute' and event.code == 'ABS_X':
                     val = int(event.state)
-                    if val <= -256 or val >= 256: # calib, dead area
-                        shr_gamepad_state[0] = val / 32768 #/ -32768 to 32767
+                    if True: # calib, dead area
+                        if val > 150:
+                            shr_gamepad_state[0] = 1 #/ -32768 to 32767
+                        elif val < 100:
+                            shr_gamepad_state[0] = -1
+                        else:
+                            shr_gamepad_state[0] = 0
                         print("SHRGAMEPADSTATE_0:", val)
-                if not disable_joystick and event.ev_type == 'Absolute' and event.code == 'ABS_RY':
-                        val = int(event.state)
-                        shr_gamepad_state[8] = -val / 32768 * 100
-                        print("SHRGAMEPADSTATE_8:", shr_gamepad_state[8])
+                if event.ev_type == 'Absolute' and event.code == 'ABS_RZ':
+                    val = int(event.state)
+                    if val < 128: # calib, dead area
+                        shr_gamepad_state[8] = (128 - val) / 128
+                        print("SHRGAMEPADSTATE_8:", val)
+                    else:
+                        shr_gamepad_state[8] = 0
     
                 elif event.ev_type == 'Absolute' and event.code == 'ABS_HAT0Y':
                     if int(event.state) == -1:
@@ -161,6 +169,7 @@ class input_gamepad(input_stream):
                     gamepad_disable_time = time.time()
             #if shr_gamepad_state[0] < 32768//2 and shr_gamepad_state[0] > -32768//2:
             #    shr_gamepad_state[0] = 0. # dead area
+
             lock.release()
 
     def read_inp(self):

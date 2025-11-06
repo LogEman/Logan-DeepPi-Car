@@ -15,24 +15,24 @@ def init(default_speed=50):
     set_speed(default_speed)
 
 # throttle
-cur_speed = MAX_SPEED
+cur_speed = 1
 move_state = 0
 
 def get_max_speed():
-    return MAX_SPEED
+    return 1
 
 def set_speed(speed):
     global cur_speed
     global move_state
-    speed = int(MAX_SPEED * speed / 100)
-    cur_speed = min(MAX_SPEED, speed)
+    speed = max(-1, min(1, speed))
+    cur_speed = speed
     if move_state == -1:
         rew()
     elif move_state == 1:
         ffw()
 
 def get_speed():
-    return int(cur_speed * 100 / MAX_SPEED)
+    return int(cur_speed * 100)
 
 def stop():
     global move_state
@@ -54,10 +54,10 @@ def center():
     steer_motor.stop()
 
 def left(speed=-1):
-    steer_motor.backward(abs((int(speed*MAX_SPEED))))
+    steer_motor.backward(abs((int(speed))))
 
 def right(speed=1):
-    steer_motor.forward(abs(int(speed*MAX_SPEED)))
+    steer_motor.forward(abs(int(speed)))
 
 # exit    
 def turn_off():
