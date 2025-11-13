@@ -94,7 +94,7 @@ class input_kbd(input_stream):
     
 
 class input_gamepad(input_stream):
-    def __init__(self, speed=50):
+    def __init__(self, speed=0.5):
         self.shared_arr = Array('d', [0.]*9) # joystick pos and other buttons and finish state
         #self.finish = Value('i', 1)
         self.lock=Lock()
@@ -123,6 +123,7 @@ class input_gamepad(input_stream):
             lock.acquire()
             for event in gamepad_events:
                 if event.ev_type == 'Absolute' and event.code == 'ABS_X':
+                    print("EVENT STATE ABSX: ", event.state)
                     val = int(event.state)
                     if True: # calib, dead area
                         if val > 150:
@@ -133,6 +134,7 @@ class input_gamepad(input_stream):
                             shr_gamepad_state[0] = 0
                         print("SHRGAMEPADSTATE_0:", val)
                 if event.ev_type == 'Absolute' and event.code == 'ABS_RZ':
+                    print("EVENT STATE ABSRZ: ", event.state)
                     val = int(event.state)
                     if val < 128: # calib, dead area
                         shr_gamepad_state[8] = (128 - val) / 128

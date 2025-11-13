@@ -8,7 +8,7 @@ steer_motor = PhaseEnableMotor(5, 12, pin_factory=factory)
 drive_motor = PhaseEnableMotor(6, 13, pin_factory=factory)
 
 # init
-def init(default_speed=50):
+def init(default_speed=0.5):
     steer_motor.stop()
     drive_motor.stop()
 
@@ -32,7 +32,7 @@ def set_speed(speed):
         ffw()
 
 def get_speed():
-    return int(cur_speed * 100)
+    return int(cur_speed)
 
 def stop():
     global move_state
