@@ -40,7 +40,7 @@ enable_record = False
 
 cfg_cam_res = (320, 240)
 cfg_cam_fps = 30
-cfg_throttle = 50 # 50% power.
+cfg_throttle = 0.5 # 50% power.
 
 frame_id = 0
 angle = 0.0
@@ -123,7 +123,7 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(description='DeepPicar main')
     parser.add_argument("-d", "--dnn", help="Enable DNN", action="store_true")
-    parser.add_argument("-t", "--throttle", help="throttle percent. [0-100]%", type=int)
+    parser.add_argument("-t", "--throttle", help="throttle percent. [0-100]%", type=float)
     parser.add_argument("-n", "--ncpu", help="number of cores to use.", type=int, default=1)
     parser.add_argument("-f", "--hz", help="control frequnecy", type=int)
     parser.add_argument("-g", "--gamepad", help="Use gamepad", action="store_true")

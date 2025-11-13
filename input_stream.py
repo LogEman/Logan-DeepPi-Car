@@ -24,7 +24,7 @@ import json
 #camera   = __import__(params.camera)
 
 class input_stream:
-    def __init__(self, speed=50):
+    def __init__(self, speed=0.5):
         self.buffer = ' '
         self.direction = 0.
         self.speed = speed
