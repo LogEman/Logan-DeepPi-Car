@@ -183,6 +183,7 @@ if __name__ == '__main__':
             command, direction, speed = cur_inp_stream.read_inp()
             if not use_dnn: #TESTINGGGG
                 actuator.set_speed(speed) #TESTING
+                print("Speed: ", speed)
         
         
        
